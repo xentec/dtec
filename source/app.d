@@ -1,4 +1,4 @@
-import std.getopt, std.regex, std.stdio, std.uri, std.xml;
+import std.getopt, std.regex, std.stdio, std.uri;
 import ircbod.client, ircbod.message;
 import vibe.inet.url, vibe.inet.urltransfer, vibe.stream.operations;
 
@@ -24,6 +24,7 @@ void main(string[] args) {
 	//vibe.core.log.setLogLevel(vibe.core.log.LogLevel.Trace);
 	//IRCMessage msg;
 	//msg.text = "http://code.dlang.org";
+	auto title_match = regex(r"<title>(.*)</title>", "i");
 	dtec.on(IRCMessage.Type.CHAN_MESSAGE, (msg) {
 		foreach(ref url; findURLs(msg.text)) {
 			try {
@@ -33,14 +34,12 @@ void main(string[] args) {
 					try {
 						string data = input.readAllUTF8(false);
 						//check(data);
-		
-						auto xml = new DocumentParser(data);
-						xml.onEndTag["title"] = (in Element e) {
-							string title = "» [" ~ e.text() ~ "]";
+						auto cap = match(data, title_match);
+						if(!cap.empty()) {
+							string title = "» [" ~ cap.captures[1] ~ "]";
 							msg.reply(title);
 							writeln(title); 
-						};
-						xml.parse();
+						}
 
 					} catch (Exception e) {
 						writeln("Failed to parse");
@@ -56,7 +55,6 @@ void main(string[] args) {
 
 	writeln("Connecting... ", nick, passwd.length > 0 ? ":" : "",passwd, "@", host,":",port, "/", channels);
 	dtec.connect();
-	//dtec.join();
 	writeln("Processing...");
 	dtec.run();
 }
