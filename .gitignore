@@ -1,0 +1,9 @@
+# DUB
+/.dub
+
+# Mono-D
+/bin
+/obj
+*.dproj
+*.sln
+*.userprefs

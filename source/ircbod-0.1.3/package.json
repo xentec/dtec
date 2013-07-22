@@ -1,0 +1,11 @@
+{
+	"description": "IRC Bot library for the D programming language.",
+	"authors": [
+		"Christopher Bertels"
+	],
+	"version": "0.1.3",
+	"dependencies": {},
+	"homepage": "https://github.com/bakkdoor/ircbod",
+	"name": "ircbod",
+	"copyright": "Copyright © 2013, Christopher Bertels"
+}

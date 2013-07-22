@@ -1,0 +1,16 @@
+{
+	"Version": 1,
+	"Files": {
+		"source/": "Directory",
+		"package.json": "RegularFile",
+		"LICENSE": "RegularFile",
+		"examples/hello_bot.d": "RegularFile",
+		"source/ircbod/": "Directory",
+		"examples/": "Directory",
+		"README.md": "RegularFile",
+		"source/ircbod/message.d": "RegularFile",
+		"source/ircbod/client.d": "RegularFile",
+		"source/ircbod/socket.d": "RegularFile",
+		"journal.json": "RegularFile"
+	}
+}

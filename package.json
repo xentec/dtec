@@ -1,0 +1,19 @@
+{
+	"name": "d-tec",
+	"description": "My stupid irc bot",
+	"authors": ["Xentec"],
+	"license": "MIT",
+
+	"dependencies": {
+		"vibe-d": ">=0.7.16"
+	},
+	
+	"versions":["VibeCustomMain"],
+
+	"importPaths":["source/ircbod-0.1.3/source"],	
+
+	"workingDir": "bin",
+	"targetType": "executable",
+	"targetPath": "bin",
+	"targetName": "dtec"
+}
