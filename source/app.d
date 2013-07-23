@@ -1,6 +1,6 @@
-import std.array, std.getopt, std.regex, std.stdio, std.xml : decode;
+import std.array, std.conv, std.getopt, std.regex, std.stdio, std.xml : decode;
 import ircbod.client, ircbod.message;
-import vibe.inet.url, vibe.inet.urltransfer, vibe.stream.operations;
+import vibe.inet.url, vibe.http.client, vibe.stream.operations;
 
 int main(string[] args) {
 	string host = "fr.quakenet.org";
@@ -24,24 +24,40 @@ int main(string[] args) {
 
 	auto title_match = regex(r"<title>(.*)</title>", "i");
 	dtec.on(IRCMessage.Type.CHAN_MESSAGE, (msg) {
+		if(msg.text == nick ~ ", shut up") {
+			msg.reply("._.");
+			dtec.quit();
+		}
+
 		foreach(ref url; findURLs(msg.text)) {
 			try {
 				writeln("Loading ", url, "");
-				download(url, (scope InputStream input) {
-					try {
-						string data = input.readAllUTF8(false);
-
-						auto cap = match(data, title_match);
-						if(!cap.empty()) {
-							string title = "» [" ~ decode(cap.captures[1]).replace("&nbsp;", " ") ~ "]";
-							msg.reply(title);
-							writeln(title); 
+				requestHTTP(url,
+					(scope req) {
+					/* could e.g. add headers here before sending*/
+					},
+					(scope res) {
+						try {
+							string title = "";
+							if(res.statusCode >= 400) {
+								title = "! " ~ text(res.statusCode) ~ " - " ~ res.statusPhrase;
+							}
+							string data = res.bodyReader.readAllUTF8(false);
+							auto cap = match(data, title_match);
+							if(!cap.empty()) {
+								if(title.length != 0)
+									title ~= " ";
+								title ~= "» [" ~ decode(cap.captures[1]).replace("&nbsp;", " ") ~ "]";
+							}
+							if(title.length > 0) {
+								msg.reply(title);
+								writeln(title); 
+							}
+						} catch (Exception e) {
+							writeln("Failed to parse");
+							writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
 						}
-					} catch (Exception e) {
-						writeln("Failed to parse");
-						writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
-					}
-				});
+					});
 			} catch (Exception e) {
 				writeln("Failed to load");
 				writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
@@ -67,7 +83,7 @@ URL[] findURLs(in string text) {
 		try {
 			debug writeln(cap);
 			URL url = URL.parse(cap.hit);
-			if(url.localURI.length == 0) // Retarded but vibe.d cannot fix itself
+			if(url.localURI.length == 0) //2 Retarded but vibe.d cannot fix itself
 				url.localURI = "/";
 			urls ~= url;
 		} catch (Exception e) {
