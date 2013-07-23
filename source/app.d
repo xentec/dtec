@@ -1,4 +1,4 @@
-import std.array, std.conv, std.getopt, std.regex, std.stdio, std.xml : decode;
+import std.array, std.conv, std.getopt, std.regex, std.stdio, std.string, std.xml : decode;
 import ircbod.client, ircbod.message;
 import vibe.inet.url, vibe.http.client, vibe.stream.operations;
 
@@ -22,7 +22,7 @@ int main(string[] args) {
 
 	//debug vibe.core.log.setLogLevel(vibe.core.log.LogLevel.Trace);
 
-	auto title_match = regex(r"<title>(.*)</title>", "i");
+	auto title_match = regex(r"<title>(.*)</title>", "is");
 	dtec.on(IRCMessage.Type.CHAN_MESSAGE, (msg) {
 		if(msg.text == nick ~ ", shut up") {
 			msg.reply("._.");
@@ -47,7 +47,9 @@ int main(string[] args) {
 							if(!cap.empty()) {
 								if(title.length != 0)
 									title ~= " ";
-								title ~= "» [" ~ decode(cap.captures[1]).replace("&nbsp;", " ") ~ "]";
+								title ~= "» [";
+								title ~= decode(cap.captures[1].strip()).replace("&nbsp;", " ");
+								title ~= "]";
 							}
 							if(title.length > 0) {
 								msg.reply(title);
@@ -92,3 +94,5 @@ URL[] findURLs(in string text) {
 		}
 	return urls;
 }
+
+
