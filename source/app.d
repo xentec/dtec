@@ -1,4 +1,4 @@
-import std.getopt, std.regex, std.stdio, std.uri;
+import std.array, std.getopt, std.regex, std.stdio, std.xml : decode;
 import ircbod.client, ircbod.message;
 import vibe.inet.url, vibe.inet.urltransfer, vibe.stream.operations;
 
@@ -36,7 +36,7 @@ void main(string[] args) {
 						//check(data);
 						auto cap = match(data, title_match);
 						if(!cap.empty()) {
-							string title = "» [" ~ cap.captures[1] ~ "]";
+							string title = "» [" ~ decode(cap.captures[1]).replace("&nbsp;", " ") ~ "]";
 							msg.reply(title);
 							writeln(title); 
 						}
