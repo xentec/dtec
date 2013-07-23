@@ -1,1 +1,2 @@
-client.d - Correct to quakenet.org servers by joining channels after MOTD
+client.d - Corrected connecting to quakenet.org servers by joining channels after MOTD
+	 - less output

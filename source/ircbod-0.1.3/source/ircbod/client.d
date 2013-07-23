@@ -55,15 +55,15 @@ public:
 
         this.sock.nick(this.nickname);
         this.sock.user(this.nickname, 0, "*", "ircbod");
-		join();
+	join();
     }
 
-	void join() 
-	{
-		foreach(c; this.channels) {
-			this.sock.join(c);
-		}
-	}
+    void join() 
+    {
+        foreach(c; this.channels) {
+            this.sock.join(c);
+        }
+    }
 
     bool connected()
     {
@@ -143,7 +143,7 @@ public:
 
         string line;
         while (this.running && (line = this.sock.read()).length > 0) {
-            std.stdio.writeln(line);
+            debug std.stdio.writeln(line);
             processLine(line);
         }
     }

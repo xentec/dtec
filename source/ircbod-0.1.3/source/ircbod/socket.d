@@ -59,7 +59,7 @@ public:
 
     private void write(string message)
     {
-        std.stdio.writeln(">> " , message);
+        debug std.stdio.writeln(">> " , message);
         this.stream.writeString(message ~ "\r\n");
     }
 
