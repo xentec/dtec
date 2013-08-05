@@ -78,12 +78,12 @@ URL[] findURLs(in string text) {
 	debug writeln("Input text: ", text);
 
 	// Url match regex thanks to http://stackoverflow.com/a/1141962
-	auto url_match = regex(r"(https?://)?(([\S]+\.)+(MUSEUM|TRAVEL|AERO|ARPA|ASIA|EDU|GOV|MIL|MOBI|COOP|INFO|NAME|BIZ|CAT|COM|INT|JOBS|NET|ORG|PRO|TEL|A[CDEFGILMNOQRSTUWXZ]|B[ABDEFGHIJLMNORSTVWYZ]|C[ACDFGHIKLMNORUVXYZ]|D[EJKMOZ]|E[CEGHRSTU]|F[IJKMOR]|G[ABDEFGHILMNPQRSTUWY]|H[KMNRTU]|I[DELMNOQRST]|J[EMOP]|K[EGHIMNPRWYZ]|L[ABCIKRSTUVY]|M[ACDEFGHKLMNOPQRSTUVWXYZ]|N[ACEFGILOPRUZ]|OM|P[AEFGHKLMNRSTWY]|QA|R[EOSUW]|S[ABCDEGHIJKLMNORTUVYZ]|T[CDFGHJKLMNOPRTVWZ]|U[AGKMSYZ]|V[ACEGINU]|W[FS]|Y[ETU]|Z[AMW]))(/?[a-z0-9\._/~%\-\+&\#\?!=\(\)@]*)?", "ig");
+	auto url_match = regex(r"(https?://)(([\S]+\.)*([a-z0-9])+)(/?[a-z0-9\._/~%\-\+&\#\?!=\(\)@]*)?", "ig");
 
 	URL[] urls;
 	foreach(ref cap; match(text, url_match))
 		try {
-			debug writeln(cap);
+			debug writeln("URL found: ", cap);
 			URL url = URL.parse(cap.hit);
 			if(url.localURI.length == 0) //2 Retarded but vibe.d cannot fix itself
 				url.localURI = "/";
