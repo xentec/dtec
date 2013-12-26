@@ -1,11 +1,11 @@
 {
-	"name": "d-tec",
+	"name": "dtec",
 	"description": "My stupid irc bot",
 	"authors": ["Xentec"],
 	"license": "MIT",
 
 	"dependencies": {
-		"vibe-d": ">=0.7.16"
+		"vibe-d": "0.7.18"
 	},
 	
 	"versions":["VibeCustomMain"],

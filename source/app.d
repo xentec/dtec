@@ -1,67 +1,87 @@
-import std.array, std.conv, std.getopt, std.regex, std.stdio, std.string, std.xml : decode;
-import ircbod.client, ircbod.message;
-import vibe.inet.url, vibe.http.client, vibe.stream.operations;
+import
+	std.array,
+	std.conv,
+	std.getopt,
+	std.regex,
+	std.stdio,
+	std.string;
+import
+	ircbod.client,
+	ircbod.message;
+import
+	vibe.inet.url,
+	vibe.http.client,
+	vibe.stream.operations;
+
+// Url match regex thanks to http://stackoverflow.com/a/1141962
+enum url_match = regex(r"(https?://)(([\S]+\.)*([a-z0-9])+)(/?[a-z0-9\._/~%\-\+&\#\?!=\(\)@]*)?", "ig");
 
 int main(string[] args) {
 	string host = "fr.quakenet.org";
 	ushort port = 6666;
 
-	string nick = "Dtec",
-		passwd = null;
+	string nick = "Dtec", passwd = null;
 	string[] channels = [ "#DerpsInAction" ];
+
+	bool muted;
 
 	getopt(args,
 	       "h|host", &host,
 	       "p|port", &port,
-	       "u|user|n|nick|nickname", &nick,
+	       "n|nick|nickname", &nick,
 	       "pass|password", &passwd,
-	       "c|channel|channels", &channels);
+	       "c|channel|channels", &channels,
+		   "m|muted", &muted);
 
 	writeln("Initialising... ");
 	IRCClient dtec = new IRCClient(host, port, nick, passwd, channels);
 
 	//debug vibe.core.log.setLogLevel(vibe.core.log.LogLevel.Trace);
-
-	auto title_match = regex(r"<title>(.*)</title>", "is");
+	
 	dtec.on(IRCMessage.Type.CHAN_MESSAGE, (msg) {
-		if(msg.text == nick ~ ", shut up") {
+		string atMe = "@" ~ nick ~ " ";
+		if(msg.text == atMe ~ "stfu") {
 			msg.reply("._.");
-			dtec.quit();
+			muted = true;
 		}
+		if(muted) return;
 
 		foreach(ref url; findURLs(msg.text)) {
 			try {
 				writeln("Loading ", url, "");
 				requestHTTP(url,
-					(scope req) {
-					/* could e.g. add headers here before sending*/
-					},
-					(scope res) {
-						try {
-							string title = "";
-							if(res.statusCode >= 400) {
-								title = "! " ~ text(res.statusCode) ~ " - " ~ res.statusPhrase;
-							}
-							string data = res.bodyReader.readAllUTF8(false);
-							auto cap = match(data, title_match);
-							if(!cap.empty()) {
-								if(title.length != 0)
-									title ~= " ";
-								title ~= "» [";
-								title ~= decode(cap.captures[1].strip()).replace("&nbsp;", " ");
-								title ~= "]";
-							}
-							if(title.length > 0) {
-								msg.reply(title);
-								writeln(title); 
-							}
-						} catch (Exception e) {
-							writeln("Failed to parse");
-							writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
+				(scope HTTPClientRequest req) {
+				/* could e.g. add headers here before sending*/
+				},
+				(scope HTTPClientResponse res) {
+					try {
+						auto ap = appender!string();
+						if(res.statusCode >= 400) {
+							ap ~= "! ";
+							ap ~= text(res.statusCode);
+							ap ~= " - ";
+							ap ~= res.statusPhrase;
 						}
-					});
+
+						string title = getTitle(res.bodyReader);
+						if(!title.empty()) {
+							if(ap.data.length != 0)
+								ap ~= " ";
+							ap ~= "» [";
+							ap ~= title;
+							ap ~= "]";
+						}
+						if(ap.data.length > 0) {
+							msg.reply(ap.data);
+							writeln(ap); 
+						}
+					} catch (Exception e) {
+						writeln("Failed to parse");
+						writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
+					}
+				});
 			} catch (Exception e) {
-				writeln("Failed to load");
+				writeln("Failed to load: ", url);
 				writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
 			}
 		}		
@@ -74,18 +94,34 @@ int main(string[] args) {
 	return 0;
 }
 
+string getTitle(InputStream stream) {
+	enum string[2] titleTag = ["<title>", "</title>"];
+	string data;
+	try
+		data = cast(string)stream.readUntil(titleTag[1].representation());
+	catch(Exception e) {
+		writeln(e);
+		return null;
+	}
+	ptrdiff_t pos = data.indexOf(titleTag[0]);
+	if(pos >= 0) {
+		pos += titleTag[0].length;
+		return data[pos..$].strip().replace("&nbsp;", " ");
+	} else {
+		debug writeln("First <title> tag not found");
+		return data;
+	}
+}
+
 URL[] findURLs(in string text) {
 	debug writeln("Input text: ", text);
-
-	// Url match regex thanks to http://stackoverflow.com/a/1141962
-	auto url_match = regex(r"(https?://)(([\S]+\.)*([a-z0-9])+)(/?[a-z0-9\._/~%\-\+&\#\?!=\(\)@]*)?", "ig");
-
+	
 	URL[] urls;
 	foreach(ref cap; match(text, url_match))
 		try {
 			debug writeln("URL found: ", cap);
 			URL url = URL.parse(cap.hit);
-			if(url.localURI.length == 0) //2 Retarded but vibe.d cannot fix itself
+			if(url.localURI.length == 0) // Retarded but vibe.d cannot fix itself
 				url.localURI = "/";
 			urls ~= url;
 		} catch (Exception e) {
