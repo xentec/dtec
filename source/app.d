@@ -73,7 +73,7 @@ int main(string[] args) {
 						}
 						if(ap.data.length > 0) {
 							msg.reply(ap.data);
-							writeln(ap); 
+							writeln(ap.data);
 						}
 					} catch (Exception e) {
 						writeln("Failed to parse");
