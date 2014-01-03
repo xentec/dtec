@@ -1,2 +1,4 @@
-client.d - Corrected connecting to quakenet.org servers by joining channels after MOTD
-	 - less output
+client.d::
+	- corrected connecting to quakenet.org servers by joining channels after MOTD
+	- less output
+	- changed MessageHandler delegate type to function

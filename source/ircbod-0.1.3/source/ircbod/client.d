@@ -3,8 +3,8 @@ module ircbod.client;
 import ircbod.socket, ircbod.message;
 import std.regex, std.container, std.datetime, std.conv;
 
-alias void delegate(IRCMessage message)                 MessageHandler;
-alias void delegate(IRCMessage message, string[] args)  MessageHandlerWithArgs;
+alias void function(IRCMessage message)                 MessageHandler;
+alias void function(IRCMessage message, string[] args)  MessageHandlerWithArgs;
 
 class IRCClient
 {
