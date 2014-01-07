@@ -126,16 +126,16 @@ HTTP.StatusLine getTitle(in string url, ref string title) {
 		content ~= (cast(char[])data).idup;
 
 		if(ix == -1) {
-			ix = content.data.indexOf("<title>");
+			ix = content.data.lastIndexOf("<title>", CaseSensitive.no);
 			if(ix > -1)
 				ix += "<title>".length;
 		}
 		if(ix > -1 && ex == -1) {
-			ex = content.data.indexOf("</title>");
+			ex = content.data [ix .. $].lastIndexOf("</title>", CaseSensitive.no);
 			if(ex == -1) {
 				aTitle ~= content.data[ix .. $];
 			} else {
-				aTitle ~= content.data[ix .. ex];
+				aTitle ~= content.data[ix .. ix+ex];
 				return HTTP.requestAbort;
 			}
 		}
