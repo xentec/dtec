@@ -54,32 +54,45 @@ void onChannelMessage(IRCMessage msg) {
 		muted = true;
 	}
 	if(muted) return;
-	
-	foreach(ref url; findURLs(msg.text)) {
+
+	printURLs(msg);
+}
+
+void printURLs(ref IRCMessage msg) {
+
+	string[] urls;
+	foreach(ref cap; match(msg.text, url_match)) {
+		string url = cap.hit;
 		try {
 			string title;
 			HTTP.StatusLine status;
-
-			status = getTitle(url, title);
-
 			auto ap = appender!string();
-			if(status.code >= 400) {
-				ap ~= "! ";
-				ap ~= text(status.code);
-			//	ap ~= " - ";
-			//	ap ~= status.reason;
+
+			try {
+				writeln("Loading ", url);
+				status = getTitle(url, title);
+				if(status.code >= 400) {
+					ap ~= "! ";
+					ap ~= text(status.code);
+					//	ap ~= " - ";
+					//	ap ~= status.reason;
+				}
+
+				if(!title.empty()) {
+					if(ap.data.length != 0)
+						ap ~= " ";
+					ap ~= "» [";
+					ap ~= title;
+					ap ~= "]";
+				}
+			} catch(CurlTimeoutException ex) {
+				ap.put("! Timed out");
 			}
 
-			if(!title.empty()) {
-				if(ap.data.length != 0)
-					ap ~= " ";
-				ap ~= "» [";
-				ap ~= title;
-				ap ~= "]";
-			}
+
 			if(ap.data.length > 0) {
 				msg.reply(ap.data);
-				//writeln(ap.data);
+				writeln(ap.data);
 			}
 		} catch (Exception e) {
 			writeln("Failed to load: ", url);
@@ -88,19 +101,8 @@ void onChannelMessage(IRCMessage msg) {
 	}
 }
 
-string[] findURLs(in string text) {
-	debug writeln("Input text: ", text);
-
-	string[] urls;
-	foreach(ref cap; match(text, url_match))
-		urls ~= cap.hit;
-
-	return urls;
-}
-
 HTTP.StatusLine getTitle(in string url, ref string title) {
 	auto aTitle = appender!string;
-
 	auto content = appender!string;
 
 	HTTP client = HTTP(url);
