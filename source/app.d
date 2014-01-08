@@ -12,8 +12,7 @@ import
 	ircbod.message;
 
 
-// Url match regex thanks to http://stackoverflow.com/a/1141962
-enum url_match = regex(r"(https?://)(([\S]+\.)*([a-z0-9])+)(/?[a-z0-9\._/~%\-\+&\#\?!=\(\)@]*)?", "ig");
+enum url_match = regex(r"(https?:// | [\S]+\.)*[\S]+/?", "ig");
 
 bool muted;
 string nick = "Dtec";
@@ -126,12 +125,12 @@ HTTP.StatusLine getTitle(in string url, ref string title) {
 		content ~= (cast(char[])data).idup;
 
 		if(ix == -1) {
-			ix = content.data.lastIndexOf("<title>", CaseSensitive.no);
+			ix = content.data.indexOf("<title>", CaseSensitive.no);
 			if(ix > -1)
 				ix += "<title>".length;
 		}
 		if(ix > -1 && ex == -1) {
-			ex = content.data [ix .. $].lastIndexOf("</title>", CaseSensitive.no);
+			ex = content.data[ix .. $].indexOf("</title>", CaseSensitive.no);
 			if(ex == -1) {
 				aTitle ~= content.data[ix .. $];
 			} else {
