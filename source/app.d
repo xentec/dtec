@@ -1,18 +1,21 @@
 import
+	std.algorithm,
 	std.array,
+	std.bitmanip,
 	std.conv,
-	std.datetime,
 	std.getopt,
 	std.net.curl,
 	std.regex,
 	std.stdio,
-	std.string;
+	std.string,
+	std.system;
 import
 	ircbod.client,
 	ircbod.message;
 
+import dtec.utils;
 
-enum url_match = regex(r"(https?:// | [\S]+\.)*[\S]+/?", "ig");
+enum url_match = regex(r"(?:https?://|[\S]+\.[\S]+/?)[\S]+", "ig");
 
 bool muted;
 string nick = "Dtec";
@@ -63,25 +66,25 @@ void printURLs(ref IRCMessage msg) {
 	foreach(ref cap; match(msg.text, url_match)) {
 		string url = cap.hit;
 		try {
-			string title;
-			HTTP.StatusLine status;
+			string info;
+			MetaInfo mi;
 			auto ap = appender!string();
 
 			try {
 				writeln("Loading ", url);
-				status = getTitle(url, title);
-				if(status.code >= 400) {
+				mi = getInfo(url, info);
+				if(mi.status.code >= 400) {
 					ap ~= "! ";
-					ap ~= text(status.code);
+					ap ~= text(mi.status.code);
 					//	ap ~= " - ";
 					//	ap ~= status.reason;
 				}
 
-				if(!title.empty()) {
+				if(!info.empty()) {
 					if(ap.data.length != 0)
 						ap ~= " ";
 					ap ~= "» [";
-					ap ~= title;
+					ap ~= info;
 					ap ~= "]";
 				}
 			} catch(CurlTimeoutException ex) {
@@ -90,8 +93,8 @@ void printURLs(ref IRCMessage msg) {
 
 
 			if(ap.data.length > 0) {
-				msg.reply(ap.data);
 				writeln(ap.data);
+				msg.reply(ap.data);
 			}
 		} catch (Exception e) {
 			writeln("Failed to load: ", url);
@@ -100,46 +103,132 @@ void printURLs(ref IRCMessage msg) {
 	}
 }
 
-HTTP.StatusLine getTitle(in string url, ref string title) {
-	auto aTitle = appender!string;
-	auto content = appender!string;
+struct MetaInfo {
+	HTTP.StatusLine status;
+	ulong size;
+	string contentType;
+}
+
+MetaInfo getInfo(in string url, ref string info) {
+	auto aInfo = appender!(string);
 
 	HTTP client = HTTP(url);
 	client.method = HTTP.Method.get;
 
-	HTTP.StatusLine status;
-	client.onReceiveStatusLine = (HTTP.StatusLine sl) { status = sl; };
+	MetaInfo mi;
 
-	//string encoding = "ISO-8859-1";
-	/*client.onReceiveHeader = (in char[] key, in char[] value) {
-		enum charset_match = regex("charset=([^;,]*)", "i");
+	//enum Type { UNKNOWN, PLAIN, HTTP, JSON, PNG, JPEG, GIF }
 
-		if ("content-type" == key.toLower) {
-			auto m = match(value, charset_match);
-			if (!m.empty && m.captures.length > 1)
-				encoding = m.captures[1].idup;
-		}
-	};*/
-	long ix,ex=ix=-1;
-	client.onReceive = (ubyte[] data) {
-		content ~= (cast(char[])data).idup;
+	string encoding = "ISO-8859-1";
 
-		if(ix == -1) {
-			ix = content.data.indexOf("<title>", CaseSensitive.no);
-			if(ix > -1)
-				ix += "<title>".length;
-		}
-		if(ix > -1 && ex == -1) {
-			ex = content.data[ix .. $].indexOf("</title>", CaseSensitive.no);
-			if(ex == -1) {
-				aTitle ~= content.data[ix .. $];
-			} else {
-				aTitle ~= content.data[ix .. ix+ex];
+	alias size_t delegate(ubyte[]) request;
+	enum request[string] handler = [
+		"text/html": (ubyte[] data){
+			static auto content = appender!(string);
+			static ulong s = 0;
+			static long ix=-1, ex=-1;
+
+			if(!s)
+				s = mi.size;
+
+			string chunk = decodeString(encoding, data);
+			content ~= chunk;
+
+			if(ix == -1) {
+				ix = content.data.indexOf("<title>", CaseSensitive.no);
+				if(ix > -1)
+					ix += "<title>".length;
+			}
+			if(ix > -1 && ex == -1) {
+				ex = content.data[ix .. $].indexOf("</title>", CaseSensitive.no);
+				if(ex == -1) {
+					aInfo ~= content.data[ix .. $];
+				} else {
+					aInfo ~= content.data[ix .. ix+ex];
+					content.clear();
+					s=0,ex=-1,ix=-1;
+					return HTTP.requestAbort;
+
+				}
+			}
+			if(s <= data.length) {
+				content.clear();
+				s=0,ex=-1,ix=-1;
+			} else
+				s-=data.length;
+
+			return data.length;
+		},
+		"image/png": (ubyte[] data){
+			if(data.length < 36 || data[0..16] != [0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, /*|*/ 0x00, 0x00, 0x00, 0x0D, 'I', 'H', 'D', 'R'])
+				return HTTP.requestAbort;
+
+			uint w = data.peek!uint(16);
+			uint h = data.peek!uint(20);
+			aInfo.put(text(w,"x",h, " ", humanBytes(mi.size)));
+			return 0x10000000UL; // workaround
+		},
+		"image/gif": (ubyte[] data){
+			if(data.length < 10 || data[0..3] != ['G', 'I', 'F'])
+				return HTTP.requestAbort;
+
+			ushort w = data.peek!(ushort, Endian.littleEndian)(6);
+			ushort h = data.peek!(ushort, Endian.littleEndian)(8);
+			aInfo.put(text(w,"x",h, " ", humanBytes(mi.size)));
+			return 0x10000000UL; // workaround
+		},
+		"image/jpeg": (ubyte[] data){
+			if(data.length < 10 || data[0..2] != [0xFF, 0xD8])
+				return HTTP.requestAbort;
+/*
+			static auto content = appender!(ubyte[]);
+			static ulong s = 0;
+			if(!s)
+				s = mi.size;
+			content ~= data;
+*/
+			ubyte[] SOF = data.find([0xFF, 0xC0]);
+			if(SOF.length) {
+				SOF = SOF[2..$];
+				ushort w = SOF.peek!ushort(3);
+				ushort h = SOF.peek!ushort(5);
+				aInfo.put(text(w,"x",h, " ", humanBytes(mi.size)));
 				return HTTP.requestAbort;
 			}
+/*
+			if(s <= data.length) {
+				content.clear();
+				s=0;
+			} else
+				s-=data.length;
+*/
+			return data.length;
 		}
-		return data.length;
+	];
+
+	client.onReceiveStatusLine = (HTTP.StatusLine sl) { mi.status = sl; };
+	client.onReceiveHeader = (in char[] key, in char[] value) {
+		switch(key.toLower) {
+			case "content-length":
+				mi.size = to!ulong(value);
+				break;
+			case "content-type":
+				const(char)[][] v = value.split(";");
+
+				mi.contentType = v[0].idup.toLower;
+
+				if(v.length > 1) {
+					auto m = match(v[1], regex("charset=([^;,]*)", "i"));
+					if (!m.empty && m.captures.length > 1)
+						encoding = m.captures[1].idup.toUpper;
+				}
+				break;
+			default:
+		}
+
+		client.onReceive = handler.get(mi.contentType, (ubyte[]){return 0x10000000UL; /* workaround */});
 	};
+
 
 	try
 		client.perform();
@@ -149,7 +238,9 @@ HTTP.StatusLine getTitle(in string url, ref string title) {
 		if(!ex.msg.startsWith("Failed writing received data to disk/application on handle"))
 			throw ex;
 	}
-	title = aTitle.data;
-	return status;
+	debug writeln(mi);
+	info = aInfo.data.strip();
+	return mi;
 }
+
 
