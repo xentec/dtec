@@ -28,11 +28,11 @@ int main(string[] args) {
 	string[] channels = [ "#DerpsInAction" ];
 
 	getopt(args,
-	       "h|host", &host,
-	       "p|port", &port,
-	       "n|nick|nickname", &nick,
-	       "pass|password", &passwd,
-	       "c|channel|channels", &channels,
+		   "h|host", &host,
+		   "p|port", &port,
+		   "n|nick|nickname", &nick,
+		   "pass|password", &passwd,
+		   "c|channel|channels", &channels,
 		   "m|muted", &muted);
 
 	writeln("Initialising... ");
@@ -76,6 +76,8 @@ void printURLs(ref IRCMessage msg) {
 				if(mi.status.code >= 400) {
 					ap ~= "! ";
 					ap ~= text(mi.status.code);
+					if(mi.status.code == 403 && mi.cloudflare)
+						ap ~= " +Cloudflare";
 					//	ap ~= " - ";
 					//	ap ~= status.reason;
 				}
@@ -107,6 +109,7 @@ struct MetaInfo {
 	HTTP.StatusLine status;
 	ulong size;
 	string contentType;
+	bool cloudflare;
 }
 
 MetaInfo getInfo(in string url, ref string info) {
@@ -208,6 +211,7 @@ MetaInfo getInfo(in string url, ref string info) {
 
 	client.onReceiveStatusLine = (HTTP.StatusLine sl) { mi.status = sl; };
 	client.onReceiveHeader = (in char[] key, in char[] value) {
+		debug writeln(key,"=", value);
 		switch(key.toLower) {
 			case "content-length":
 				mi.size = to!ulong(value);
@@ -215,13 +219,17 @@ MetaInfo getInfo(in string url, ref string info) {
 			case "content-type":
 				const(char)[][] v = value.split(";");
 
-				mi.contentType = v[0].idup.toLower;
+				mi.contentType = v[0].idup.toLower();
 
 				if(v.length > 1) {
 					auto m = match(v[1], regex("charset=([^;,]*)", "i"));
 					if (!m.empty && m.captures.length > 1)
-						encoding = m.captures[1].idup.toUpper;
+						encoding = m.captures[1].idup.toUpper();
 				}
+				break;
+			case "server":
+				if(std.string.indexOf(value.toLower(),"cloudflare") > -1)
+					mi.cloudflare = true;
 				break;
 			default:
 		}
