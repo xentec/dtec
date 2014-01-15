@@ -37,8 +37,15 @@ public:
         this.running  = true;
     }
 
+    @property
     string name() {
         return this.nickname;
+    }
+
+    @property
+    void name(string nick) {
+        this.sock.nick(nick);
+        this.nickname = nick;
     }
 
     void connect()

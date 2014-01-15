@@ -50,10 +50,14 @@ int main(string[] args) {
 }
 
 void onChannelMessage(IRCMessage msg) {
-	string atMe = "@" ~ nick ~ " ";
+	string atMe = nick ~ " ";
 	if(msg.text == atMe ~ "stfu") {
-		msg.reply("._.");
+		msg.client.name = "zz_" ~ nick;
 		muted = true;
+	}
+	if(msg.text == atMe ~ "k") {
+		msg.client.name = nick;
+		muted = false;
 	}
 	if(muted) return;
 
