@@ -1,3 +1,4 @@
+
 import
 	std.algorithm,
 	std.array,
@@ -9,6 +10,7 @@ import
 	std.stdio,
 	std.string,
 	std.system;
+
 import
 	ircbod.client,
 	ircbod.message;
@@ -124,45 +126,49 @@ MetaInfo getInfo(in string url, ref string info) {
 
 	MetaInfo mi;
 
-	//enum Type { UNKNOWN, PLAIN, HTTP, JSON, PNG, JPEG, GIF }
-
 	string encoding = "ISO-8859-1";
 
 	alias size_t delegate(ubyte[]) request;
 	enum request[string] handler = [
 		"text/html": (ubyte[] data){
 			static auto content = appender!(string);
-			static ulong s = 0;
-			static long ix=-1, ex=-1;
+			static ulong size = 0;
+			static long ts=-1, te=-1;
 
-			if(!s)
-				s = mi.size;
+			if(!size)
+				size = mi.size;
 
 			string chunk = decodeString(encoding, data);
 			content ~= chunk;
 
-			if(ix == -1) {
-				ix = content.data.indexOf("<title>", CaseSensitive.no);
-				if(ix > -1)
-					ix += "<title>".length;
+			writeln(chunk);
+			writeln("==============================");
+
+			if(ts == -1) {
+				ts = content.data.indexOf("<title", CaseSensitive.no);
+				if(ts > -1) {
+					ts += "<title".length;
+					long tse = content.data[ts..$].indexOf(">", CaseSensitive.yes);
+					ts += (tse > -1) ? tse+1 : -1;
+				}
 			}
-			if(ix > -1 && ex == -1) {
-				ex = content.data[ix .. $].indexOf("</title>", CaseSensitive.no);
-				if(ex == -1) {
-					aInfo ~= content.data[ix .. $];
+			if(ts > -1 && te == -1) {
+				te = content.data[ts .. $].indexOf("</title>", CaseSensitive.no);
+				if(te == -1) {
+					aInfo ~= content.data[ts .. $];
 				} else {
-					aInfo ~= content.data[ix .. ix+ex];
+					aInfo ~= content.data[ts .. ts+te];
 					content.clear();
-					s=0,ex=-1,ix=-1;
+					size=0,ts=-1,te=-1;
 					return HTTP.requestAbort;
 
 				}
 			}
-			if(s <= data.length) {
+			if(size <= data.length) {
 				content.clear();
-				s=0,ex=-1,ix=-1;
+				size=0,ts=-1,te=-1;
 			} else
-				s-=data.length;
+				size-=data.length;
 
 			return data.length;
 		},
@@ -240,7 +246,6 @@ MetaInfo getInfo(in string url, ref string info) {
 
 		client.onReceive = handler.get(mi.contentType, (ubyte[]){return 0x10000000UL; /* workaround */});
 	};
-
 
 	try
 		client.perform();
