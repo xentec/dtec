@@ -126,6 +126,13 @@ MetaInfo getInfo(in string url, ref string info) {
 
 	MetaInfo mi;
 
+	debug client.verbose = true;
+
+	{	// Some websites need an user agent
+		import etc.c.curl;
+		client.addRequestHeader("User-Agent", "curl/" ~ (text((*curl_version_info(0)).version_)));
+	}
+
 	string encoding = "ISO-8859-1";
 
 	alias size_t delegate(ubyte[]) request;
