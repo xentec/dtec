@@ -47,7 +47,6 @@ int main(string[] args) {
 	dtec.connect();
 	writeln("Processing...");
 	dtec.run();
-
 	return 0;
 }
 
@@ -263,7 +262,7 @@ MetaInfo getInfo(in string url, ref string info) {
 			throw ex;
 	}
 	debug writeln(mi);
-	info = aInfo.data.strip();
+	info = aInfo.data.decodeHTML().strip().replace("\n","");
 	return mi;
 }
 
