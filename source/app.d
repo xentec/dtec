@@ -147,9 +147,6 @@ MetaInfo getInfo(in string url, ref string info) {
 			string chunk = decodeString(encoding, data);
 			content ~= chunk;
 
-			writeln(chunk);
-			writeln("==============================");
-
 			if(ts == -1) {
 				ts = content.data.indexOf("<title", CaseSensitive.no);
 				if(ts > -1) {
