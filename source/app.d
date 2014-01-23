@@ -61,8 +61,12 @@ void onChannelMessage(IRCMessage msg) {
 		muted = false;
 	}
 	if(muted) return;
+	try
+		printURLs(msg);
+	catch(Throwable e) {
+		msg.reply("FUCK, this " ~ e.classinfo.name ~ " would have almost killed me!");
+	}
 
-	printURLs(msg);
 }
 
 void printURLs(ref IRCMessage msg) {
@@ -114,6 +118,7 @@ struct MetaInfo {
 	HTTP.StatusLine status;
 	ulong size;
 	string contentType;
+	string encoding = "ISO-8859-1";
 	bool cloudflare;
 }
 
@@ -129,10 +134,8 @@ MetaInfo getInfo(in string url, ref string info) {
 
 	{	// Some websites need an user agent
 		import etc.c.curl;
-		client.addRequestHeader("User-Agent", "curl/" ~ (text((*curl_version_info(0)).version_)));
+		client.addRequestHeader("User-Agent", "curl/" ~ text((*curl_version_info(0)).version_));
 	}
-
-	string encoding = "ISO-8859-1";
 
 	alias size_t delegate(ubyte[]) request;
 	enum request[string] handler = [
@@ -144,7 +147,7 @@ MetaInfo getInfo(in string url, ref string info) {
 			if(!size)
 				size = mi.size;
 
-			string chunk = decodeString(encoding, data);
+			string chunk = decodeString(mi.encoding, data);
 			content ~= chunk;
 
 			if(ts == -1) {
@@ -225,7 +228,7 @@ MetaInfo getInfo(in string url, ref string info) {
 	client.onReceiveStatusLine = (HTTP.StatusLine sl) { mi.status = sl; };
 	client.onReceiveHeader = (in char[] key, in char[] value) {
 		debug writeln(key,"=", value);
-		switch(key.toLower) {
+		switch(key) {
 			case "content-length":
 				mi.size = to!ulong(value);
 				break;
@@ -237,7 +240,7 @@ MetaInfo getInfo(in string url, ref string info) {
 				if(v.length > 1) {
 					auto m = match(v[1], regex("charset=([^;,]*)", "i"));
 					if (!m.empty && m.captures.length > 1)
-						encoding = m.captures[1].idup.toUpper();
+						mi.encoding = m.captures[1].idup.toUpper();
 				}
 				break;
 			case "server":
