@@ -44,9 +44,18 @@ int main(string[] args) {
 	dtec.on(IRCMessage.Type.CHAN_MESSAGE, &onChannelMessage);
 
 	writeln("Connecting... ", nick, passwd.length > 0 ? ":" : "", passwd, "@", host, ":", port, "/", channels);
-	dtec.connect();
-	writeln("Processing...");
-	dtec.run();
+	Throwable last;
+	while(true) {
+		try {
+			dtec.connect();
+			dtec.run();
+			//if(last !is null)
+			//	dtec.broadcast("FUCK, this " ~ e.classinfo.name ~ " would have almost killed me!");
+		} catch(Throwable e) {
+			last = e;
+			writeln(e.file,":", e.line, "::", e.classinfo.name, ": ", e.msg);
+		}
+	}
 	return 0;
 }
 
